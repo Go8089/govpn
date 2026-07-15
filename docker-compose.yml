@@ -1,0 +1,12 @@
+services:
+  govpn-server:
+    build:
+      context: .
+      dockerfile: Dockerfile
+
+    container_name: govpn-server
+
+    ports:
+      - "51820:51820/udp"
+
+    restart: unless-stopped
