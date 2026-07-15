@@ -35,6 +35,11 @@ func (s *Server) Start() error {
 			fmt.Println(err)
 			continue
 		}
+		response := []byte("PONG")
+
+                _, err = conn.WriteToUDP(response, clientAddr)
+               if err != nil {
+               fmt.Println(err)}
 
 		fmt.Printf("Received %d bytes from %s: %s\n",
 			n,
