@@ -35,17 +35,24 @@ func (s *Server) Start() error {
 			fmt.Println(err)
 			continue
 		}
-		response := []byte("PONG")
+		if err != nil { fmt.Println(err) }
+            packet := Unmarshal(buffer[:n])
 
-		_, err = conn.WriteToUDP(response, clientAddr)
-		if err != nil {
-			fmt.Println(err)
-		}
-
-		fmt.Printf("Received %d bytes from %s: %s\n",
-			n,
-			clientAddr.String(),
-			string(buffer[:n]),
-		)
+            fmt.Printf( "Version=%d Type=%d Payload=%s\n",
+	        packet.Version,
+	        packet.Type,
+	        string(packet.Payload),
+            )
+            response := &Packet{
+	        Version: 1,
+	        Type:    PacketPong,
+	        Length:  4,
+	        Payload: []byte("PONG"),
+	        }
+            _, err = conn.WriteToUDP(response.Marshal(), clientAddr)
+            if err != nil {
+	        fmt.Println(err)
+                }
+              
 	}
 }
