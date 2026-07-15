@@ -1,7 +1,15 @@
 package main
 
-import "fmt"
+import (
+	"log"
+
+	"github.com/Go8089/govpn/internal/transport/udp"
+)
 
 func main() {
-	fmt.Println("GoVPN Server")
+	server := udp.NewServer(51820)
+
+	if err := server.Start(); err != nil {
+		log.Fatal(err)
+	}
 }
