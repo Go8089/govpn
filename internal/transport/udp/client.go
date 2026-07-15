@@ -28,10 +28,11 @@ func (c *Client) Send(message string) error {
 	_, err = conn.Write([]byte(message))
 	buffer := make([]byte, 1024)
 
-        n, _, err := conn.ReadFromUDP(buffer)
-        if err != nil {
-        return err}
+	n, _, err := conn.ReadFromUDP(buffer)
+	if err != nil {
+		return err
+	}
 
-        fmt.Println("Received:", string(buffer[:n]))
+	fmt.Println("Received:", string(buffer[:n]))
 	return nil
 }

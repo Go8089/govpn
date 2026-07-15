@@ -1,6 +1,6 @@
-package udp 
+package udp
 
 const (
-    PacketPing uint8 = 1
-    PacketPong uint8 = 2
+	PacketPing uint8 = 1
+	PacketPong uint8 = 2
 )
