@@ -36,7 +36,11 @@ func (s *Server) Start() error {
 			continue
 		}
 		if err != nil { fmt.Println(err) }
-            packet := Unmarshal(buffer[:n])
+            packet, err := Unmarshal(buffer[:n])
+            if err != nil {
+	        fmt.Println("Invalid packet:", err)
+	        continue
+            }
 
             fmt.Printf( "Version=%d Type=%d Payload=%s\n",
 	        packet.Version,
