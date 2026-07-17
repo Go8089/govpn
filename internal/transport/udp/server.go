@@ -3,6 +3,7 @@ package udp
 import (
 	"fmt"
 	"net"
+	"github.com/Go8089/govpn/internal/crypto"
 )
 
 type Server struct {
@@ -24,39 +25,63 @@ func (s *Server) Start() error {
 		return err
 	}
 	defer conn.Close()
+key, err := crypto.LoadKey("configs/dev.key")
+if err != nil {
+    return err
+}
 
+aesCipher, err := crypto.NewAES(key)
+if err != nil {
+    return err
+}
 	fmt.Printf("GoVPN UDP Server listening on %d\n", s.Port)
 
 	buffer := make([]byte, 1024)
-
-	for {
-		n, clientAddr, err := conn.ReadFromUDP(buffer)
-		if err != nil {
-			fmt.Println(err)
-			continue
-		}
-		if err != nil { fmt.Println(err) }
-            packet, err := Unmarshal(buffer[:n])
-            if err != nil {
-	        fmt.Println("Invalid packet:", err)
-	        continue
-            }
-
-            fmt.Printf( "Version=%d Type=%d Payload=%s\n",
-	        packet.Version,
-	        packet.Type,
-	        string(packet.Payload),
-            )
-            response := &Packet{
-	        Version: 1,
-	        Type:    PacketPong,
-	        Length:  4,
-	        Payload: []byte("PONG"),
-	        }
-            _, err = conn.WriteToUDP(response.Marshal(), clientAddr)
-            if err != nil {
-	        fmt.Println(err)
-                }
-              
+for {
+	n, clientAddr, err := conn.ReadFromUDP(buffer)
+	if err != nil {
+		fmt.Println(err)
+		continue
 	}
+
+	packet, err := Unmarshal(buffer[:n])
+	if err != nil {
+		fmt.Println("Invalid packet:", err)
+		continue
+	}
+
+	plaintext, err := aesCipher.Decrypt(packet.Payload, packet.Nonce)
+	if err != nil {
+		fmt.Println(err)
+		continue
+	}
+
+	fmt.Println("Received:", string(plaintext))
+
+	nonce, err := crypto.GenerateNonce()
+	if err != nil {
+		fmt.Println(err)
+		continue
+	}
+
+	ciphertext, err := aesCipher.Encrypt([]byte("PONG"), nonce)
+	if err != nil {
+		fmt.Println(err)
+		continue
+	}
+
+	response := &Packet{
+		Version: 1,
+		Type:    PacketPong,
+		Length:  uint16(len(ciphertext)),
+		Nonce:   nonce,
+		Payload: ciphertext,
+	}
+
+	_, err = conn.WriteToUDP(response.Marshal(), clientAddr)
+	if err != nil {
+		fmt.Println(err)
+	}
+}
+	
 }

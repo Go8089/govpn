@@ -16,6 +16,7 @@ type Packet struct {
 	Version uint8
 	Type    uint8
 	Length  uint16
+	Nonce   []byte
 	Payload []byte
 }
 
@@ -29,27 +30,33 @@ func (p *Packet) Validate() error {
 	}
 
 	if p.Length != uint16(len(p.Payload)) {
-		return ErrInvalidLength
-	}
+	return ErrInvalidLength
+    }
 
+    if len(p.Nonce) != 12 {
+	return ErrPacketTooShort
+    }
 	return nil
 }
 
 func (p *Packet) Marshal() []byte {
-	data := make([]byte, 4+len(p.Payload))
+
+	data := make([]byte, 4+len(p.Nonce)+len(p.Payload))
 
 	data[0] = p.Version
 	data[1] = p.Type
 	data[2] = byte(p.Length >> 8)
 	data[3] = byte(p.Length)
 
-	copy(data[4:], p.Payload)
+	copy(data[4:], p.Nonce)
+	copy(data[4+len(p.Nonce):], p.Payload)
 
 	return data
 }
 
 func Unmarshal(data []byte) (*Packet, error) {
-	if len(data) < 4 {
+
+	if len(data) < 16 {
 		return nil, ErrPacketTooShort
 	}
 
@@ -57,7 +64,8 @@ func Unmarshal(data []byte) (*Packet, error) {
 		Version: data[0],
 		Type:    data[1],
 		Length:  uint16(data[2])<<8 | uint16(data[3]),
-		Payload: data[4:],
+		Nonce:   data[4:16],
+		Payload: data[16:],
 	}
 
 	if err := packet.Validate(); err != nil {
@@ -66,5 +74,4 @@ func Unmarshal(data []byte) (*Packet, error) {
 
 	return packet, nil
 }
-
 
