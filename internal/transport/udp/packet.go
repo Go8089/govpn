@@ -1,4 +1,5 @@
 package udp
+
 import "errors"
 
 var (
@@ -7,6 +8,7 @@ var (
 	ErrInvalidType    = errors.New("invalid packet type")
 	ErrPacketTooShort = errors.New("packet too short")
 )
+
 const (
 	PacketPing uint8 = 1
 	PacketPong uint8 = 2
@@ -66,5 +68,3 @@ func Unmarshal(data []byte) (*Packet, error) {
 
 	return packet, nil
 }
-
-

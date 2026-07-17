@@ -26,16 +26,16 @@ func (c *Client) Send(message string) error {
 	defer conn.Close()
 
 	packet := &Packet{
-	Version: 1,
-	Type:    PacketPing,
-	Length:  uint16(len(message)),
-	Payload: []byte(message),
-        }
+		Version: 1,
+		Type:    PacketPing,
+		Length:  uint16(len(message)),
+		Payload: []byte(message),
+	}
 
-        _, err = conn.Write(packet.Marshal())
-        if err != nil {
-	return err
-        }
+	_, err = conn.Write(packet.Marshal())
+	if err != nil {
+		return err
+	}
 	buffer := make([]byte, 1024)
 
 	n, _, err := conn.ReadFromUDP(buffer)
