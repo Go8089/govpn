@@ -27,7 +27,7 @@ func (c *Client) Send(message string) error {
 
 	packet := &Packet{
 	Version: 1,
-	Type:    PacketPing,
+	Type:    PacketHello,
 	Length:  uint16(len(message)),
 	Payload: []byte(message),
         }
