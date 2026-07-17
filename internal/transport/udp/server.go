@@ -41,38 +41,22 @@ func (s *Server) Start() error {
 	        fmt.Println("Invalid packet:", err)
 	        continue
             }
-        switch packet.Type {
 
-case PacketHello:
-
-	fmt.Println("Handshake started")
-
-	response := &Packet{
-		Version: 1,
-		Type:    PacketHelloAck,
-		Payload: []byte("WELCOME"),
+            fmt.Printf( "Version=%d Type=%d Payload=%s\n",
+	        packet.Version,
+	        packet.Type,
+	        string(packet.Payload),
+            )
+            response := &Packet{
+	        Version: 1,
+	        Type:    PacketPong,
+	        Length:  4,
+	        Payload: []byte("PONG"),
+	        }
+            _, err = conn.WriteToUDP(response.Marshal(), clientAddr)
+            if err != nil {
+	        fmt.Println(err)
+                }
+              
 	}
-	response.Length = uint16(len(response.Payload))
-
-	_, err = conn.WriteToUDP(response.Marshal(), clientAddr)
-	if err != nil {
-		fmt.Println(err)
-	}
-
-    case PacketPing:
-	fmt.Printf("Received PING: %s\n", string(packet.Payload))
-	response := &Packet{
-		Version: 1,
-		Type:    PacketPong,
-		Payload: []byte("PONG"),
-	}
-	response.Length = uint16(len(response.Payload))
-	_, err = conn.WriteToUDP(response.Marshal(), clientAddr)
-	if err != nil {
-		fmt.Println(err)}
-    default:
-	fmt.Println("Unknown packet type")          
-	}
- }
-}oh
-
+}

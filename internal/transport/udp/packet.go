@@ -8,12 +8,8 @@ var (
 	ErrPacketTooShort = errors.New("packet too short")
 )
 const (
-	PacketPing uint8 = iota + 1
-	PacketPong
-	PacketHello
-	PacketHelloAck
-	PacketAuth
-	PacketAuthOK
+	PacketPing uint8 = 1
+	PacketPong uint8 = 2
 )
 
 type Packet struct {
@@ -28,16 +24,9 @@ func (p *Packet) Validate() error {
 		return ErrInvalidVersion
 	}
 
-	switch p.Type {
-    case PacketPing,
-    PacketPong,
-    PacketHello,
-    PacketHelloAck,
-    PacketAuth,
-    PacketAuthOK:
-    default:
-    return ErrInvalidType
-    }
+	if p.Type != PacketPing && p.Type != PacketPong {
+		return ErrInvalidType
+	}
 
 	if p.Length != uint16(len(p.Payload)) {
 		return ErrInvalidLength
