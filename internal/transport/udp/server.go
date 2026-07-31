@@ -1,23 +1,30 @@
 package udp
 
 import (
+	"crypto/ecdh"
 	"fmt"
 	"net"
+
 	"github.com/Go8089/govpn/internal/crypto"
+	"github.com/Go8089/govpn/internal/session"
 )
 
 type Server struct {
-	Port int
+	Port     int
+	Sessions *session.Manager
 }
 
 func NewServer(port int) *Server {
-	return &Server{Port: port}
+	return &Server{
+		Port:     port,
+		Sessions: session.NewManager(5 * 60 * 1e9), // 5 minutes
+	}
 }
 
 func (s *Server) Start() error {
 	addr := &net.UDPAddr{
-		Port: s.Port,
 		IP:   net.IPv4zero,
+		Port: s.Port,
 	}
 
 	conn, err := net.ListenUDP("udp", addr)
@@ -25,63 +32,132 @@ func (s *Server) Start() error {
 		return err
 	}
 	defer conn.Close()
-key, err := crypto.LoadKey("configs/dev.key")
-if err != nil {
-    return err
-}
 
-aesCipher, err := crypto.NewAES(key)
-if err != nil {
-    return err
-}
 	fmt.Printf("GoVPN UDP Server listening on %d\n", s.Port)
 
-	buffer := make([]byte, 1024)
-for {
-	n, clientAddr, err := conn.ReadFromUDP(buffer)
+	buffer := make([]byte, 4096)
+
+	serverKeyPair, err := crypto.GenerateKeyPair()
 	if err != nil {
-		fmt.Println(err)
-		continue
+		return err
 	}
 
-	packet, err := Unmarshal(buffer[:n])
-	if err != nil {
-		fmt.Println("Invalid packet:", err)
-		continue
-	}
+	clientPublicKeys := make(map[string]*ecdh.PublicKey)
+	ciphers := make(map[string]*crypto.AES)
 
-	plaintext, err := aesCipher.Decrypt(packet.Payload, packet.Nonce)
-	if err != nil {
-		fmt.Println(err)
-		continue
-	}
+	for {
+		n, clientAddr, err := conn.ReadFromUDP(buffer)
+		if err != nil {
+			fmt.Println(err)
+			continue
+		}
 
-	fmt.Println("Received:", string(plaintext))
+		packet, err := Unmarshal(buffer[:n])
+		if err != nil {
+			fmt.Println("invalid packet:", err)
+			continue
+		}
 
-	nonce, err := crypto.GenerateNonce()
-	if err != nil {
-		fmt.Println(err)
-		continue
-	}
+		switch packet.Type {
 
-	ciphertext, err := aesCipher.Encrypt([]byte("PONG"), nonce)
-	if err != nil {
-		fmt.Println(err)
-		continue
-	}
+		case PacketHello:
+			reply := &Packet{
+				Version: ProtocolVersion,
+				Type:    PacketHelloAck,
+				Nonce:   make([]byte, NonceSize),
+				Payload: []byte("HELLO_ACK"),
+			}
+			reply.Length = uint16(len(reply.Payload))
 
-	response := &Packet{
-		Version: 1,
-		Type:    PacketPong,
-		Length:  uint16(len(ciphertext)),
-		Nonce:   nonce,
-		Payload: ciphertext,
-	}
+			if _, err := conn.WriteToUDP(reply.Marshal(), clientAddr); err != nil {
+				fmt.Println(err)
+			}
 
-	_, err = conn.WriteToUDP(response.Marshal(), clientAddr)
-	if err != nil {
-		fmt.Println(err)
+		case PacketClientKey:
+			publicKey, err := ecdh.X25519().NewPublicKey(packet.Payload)
+			if err != nil {
+				fmt.Println(err)
+				continue
+			}
+
+			clientPublicKeys[clientAddr.String()] = publicKey
+
+			sharedSecret, err := crypto.ComputeSharedSecret(
+				serverKeyPair.Private,
+				publicKey,
+			)
+			if err != nil {
+				fmt.Println(err)
+				continue
+			}
+
+			aesCipher, err := crypto.NewAES(sharedSecret)
+			if err != nil {
+				fmt.Println(err)
+				continue
+			}
+
+			ciphers[clientAddr.String()] = aesCipher
+
+			s.Sessions.Create(clientAddr, sharedSecret)
+
+			reply := &Packet{
+				Version: ProtocolVersion,
+				Type:    PacketServerKey,
+				Nonce:   make([]byte, NonceSize),
+				Payload: serverKeyPair.Public.Bytes(),
+			}
+			reply.Length = uint16(len(reply.Payload))
+
+			if _, err := conn.WriteToUDP(reply.Marshal(), clientAddr); err != nil {
+				fmt.Println(err)
+			}
+
+		case PacketPing:
+			aesCipher, ok := ciphers[clientAddr.String()]
+			if !ok {
+				fmt.Println("unknown client:", clientAddr)
+				continue
+			}
+
+			plaintext, err := aesCipher.Decrypt(packet.Payload, packet.Nonce)
+			if err != nil {
+				fmt.Println(err)
+				continue
+			}
+
+			s.Sessions.Touch(clientAddr)
+
+			fmt.Printf("[%s] %s\n", clientAddr, string(plaintext))
+
+			nonce, err := crypto.GenerateNonce()
+			if err != nil {
+				fmt.Println(err)
+				continue
+			}
+
+			ciphertext, err := aesCipher.Encrypt([]byte("PONG"), nonce)
+			if err != nil {
+				fmt.Println(err)
+				continue
+			}
+
+			reply := &Packet{
+				Version: ProtocolVersion,
+				Type:    PacketPong,
+				Nonce:   nonce,
+				Payload: ciphertext,
+			}
+			reply.Length = uint16(len(reply.Payload))
+
+			if _, err := conn.WriteToUDP(reply.Marshal(), clientAddr); err != nil {
+				fmt.Println(err)
+			}
+
+		default:
+			fmt.Println("unsupported packet type:", packet.Type)
+		}
+
+		s.Sessions.Cleanup()
 	}
-}
-	
 }
