@@ -51,33 +51,6 @@ func (s *Server) Start() error {
 			fmt.Println(err)
 			continue
 		}
-<<<<<<< HEAD
-		if err != nil {
-			fmt.Println(err)
-		}
-		packet, err := Unmarshal(buffer[:n])
-		if err != nil {
-			fmt.Println("Invalid packet:", err)
-			continue
-		}
-
-		fmt.Printf("Version=%d Type=%d Payload=%s\n",
-			packet.Version,
-			packet.Type,
-			string(packet.Payload),
-		)
-		response := &Packet{
-			Version: 1,
-			Type:    PacketPong,
-			Length:  4,
-			Payload: []byte("PONG"),
-		}
-		_, err = conn.WriteToUDP(response.Marshal(), clientAddr)
-		if err != nil {
-			fmt.Println(err)
-		}
-
-=======
 
 		packet, err := Unmarshal(buffer[:n])
 		if err != nil {
@@ -186,6 +159,5 @@ func (s *Server) Start() error {
 		}
 
 		s.Sessions.Cleanup()
->>>>>>> feature/crypto
 	}
 }

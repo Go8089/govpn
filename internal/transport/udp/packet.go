@@ -1,13 +1,9 @@
 package udp
 
-<<<<<<< HEAD
-import "errors"
-=======
 import (
 	"encoding/binary"
 	"errors"
 )
->>>>>>> feature/crypto
 
 var (
 	ErrInvalidVersion = errors.New("invalid protocol version")
